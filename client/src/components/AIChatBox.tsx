@@ -37,6 +37,7 @@ import {
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { createInFlight } from "@/lib/inFlight";
+import { copyToClipboard } from "@/lib/clipboard";
 import { toast } from "sonner";
 
 const SAVE_CHATS_KEY = "ai-chat-save";
@@ -440,9 +441,10 @@ export function AIChatBox({
     }
   }, [conversationId, remove, utils, startNewChat]);
 
-  const copy = useCallback((text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard");
+  const copy = useCallback(async (text: string) => {
+    const ok = await copyToClipboard(text);
+    if (ok) toast.success("Copied to clipboard");
+    else toast.error("Could not copy — select the text and copy it manually.");
   }, []);
 
   return (

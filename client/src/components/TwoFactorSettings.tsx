@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { OtpauthQrCode } from "@/components/OtpauthQrCode";
 import { trpc } from "@/lib/trpc";
+import { copyToClipboard } from "@/lib/clipboard";
 
 interface TwoFactorSettingsProps {
   open: boolean;
@@ -111,20 +112,14 @@ export function TwoFactorSettings({
     disable.isPending ||
     regenerate.isPending;
 
-  // navigator.clipboard is undefined on a non-secure origin and can reject even
-  // where it exists. Unhandled, the button does nothing and says nothing —
-  // which for codes that cannot be reshown is the worst of both.
-  const copyToClipboard = async (text: string, success: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      toast.success(success);
-    } catch {
-      toast.error("Could not copy — select the text and copy it manually.");
-    }
+  const copyWithToast = async (text: string, success: string) => {
+    const ok = await copyToClipboard(text);
+    if (ok) toast.success(success);
+    else toast.error("Could not copy — select the text and copy it manually.");
   };
 
   const copyRecoveryCodes = () =>
-    copyToClipboard(recoveryCodes?.join("\n") ?? "", "Recovery codes copied.");
+    copyWithToast(recoveryCodes?.join("\n") ?? "", "Recovery codes copied.");
 
   const downloadRecoveryCodes = () => {
     if (!recoveryCodes) return;
@@ -277,7 +272,7 @@ export function TwoFactorSettings({
                     size="icon"
                     aria-label="Copy setup key"
                     onClick={() =>
-                      copyToClipboard(setupSecret.secret, "Setup key copied.")
+                      copyWithToast(setupSecret.secret, "Setup key copied.")
                     }
                   >
                     <Copy className="w-4 h-4" />

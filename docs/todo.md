@@ -99,6 +99,18 @@
 - [x] Stop the base64 decode costing more than the cryptography it feeds
 - [x] Guard both by asserting the shape, not by timing anything
 
+## A Copy Button That Lied
+
+- [x] Confirm real Firefox/Safari runs are blocked here — this sandbox's
+      network policy refuses the Playwright browser download, so this is a
+      static audit rather than a run
+- [x] Find the places a browser API can fail in ways Chromium's default
+      config does not surface
+- [x] One helper, used everywhere a copy button exists, that says whether it
+      actually worked instead of assuming
+- [ ] `Browser compatibility testing` stays open — this closed one class of
+      finding, not the item
+
 ## A Real Browser, At Least One
 
 - [x] Run the actual build in a real engine, not jsdom — nothing else in this repo did
