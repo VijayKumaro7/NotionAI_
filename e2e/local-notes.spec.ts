@@ -15,6 +15,7 @@ import {
   createBlankNote,
   editorTextarea,
   readStoredNotes,
+  readStoredFolders,
   noteRow,
 } from "./helpers";
 
@@ -75,4 +76,54 @@ test("a note is encrypted at rest and reads back correctly after a reload", asyn
   await noteRow(page, "Blank Note").click();
 
   await expect(editorTextarea(page)).toHaveValue(SECRET);
+});
+
+test("deleting a folder does not strand the note filed directly on it", async ({
+  page,
+}) => {
+  await openLocalWorkspace(page);
+
+  const sidebar = page.locator(".w-64");
+
+  await page.getByRole("button", { name: "New Folder" }).click();
+  await page.getByPlaceholder("Folder name...").fill("Keep");
+  await page.keyboard.press("Enter");
+
+  await page.getByRole("button", { name: "New Folder" }).click();
+  await page.getByPlaceholder("Folder name...").fill("Delete Me");
+  await page.keyboard.press("Enter");
+
+  // A note filed directly on the folder about to be deleted — not in a
+  // subfolder, which already had its own coverage before this test existed.
+  await sidebar.getByText("Delete Me", { exact: true }).hover();
+  await page.getByRole("button", { name: "New note in Delete Me" }).click();
+  await editorTextarea(page).waitFor({ state: "visible" });
+
+  const title = "Do not lose me";
+  await page.locator('input[placeholder="Note title..."]').fill(title);
+  await editorTextarea(page).fill("filed directly on the folder, not a child of it");
+
+  await sidebar.getByText("Delete Me", { exact: true }).hover();
+  await page
+    .getByRole("button", { name: "Delete folder Delete Me" })
+    .click();
+
+  // This is the failure this test exists to catch: the folder is gone and
+  // the note it held keeps a folderId that names nothing, present on disk
+  // but rendered by no folder in the tree — which reads, from the sidebar,
+  // as the note having vanished.
+  await expect(sidebar.getByText("Delete Me", { exact: true })).toHaveCount(0);
+  await expect(sidebar.getByText(title, { exact: true })).toBeVisible();
+
+  const [stored, folders] = await Promise.all([
+    readStoredNotes(page),
+    readStoredFolders(page),
+  ]);
+  const moved = stored.find(n => n.title === title);
+  expect(moved).toBeDefined();
+
+  // Not just "some string" — a folder with that exact id, still in the
+  // store. Anything less would pass just as happily for the id of the
+  // folder that was just deleted.
+  expect(folders.map(f => f.id)).toContain(moved?.folderId);
 });

@@ -17,7 +17,7 @@ import {
   readBaselines,
   writeBaselines,
 } from "@/lib/syncBaselines";
-import { promoteChildren } from "@/lib/folderTree";
+import { promoteChildren, reparentNotes } from "@/lib/folderTree";
 import {
   type SyncSummary,
   describeSync,
@@ -909,7 +909,8 @@ export function useNotes() {
 
   // Delete folder
   /**
-   * Delete a folder, lifting anything nested inside it to where it was.
+   * Delete a folder, lifting anything nested inside it to where it was —
+   * its subfolders, and its own notes.
    *
    * Folders nest, and this used to delete one row and stop. The children kept
    * a `parentId` pointing at nothing: invisible in the sidebar, their notes
@@ -918,25 +919,106 @@ export function useNotes() {
    * subtree out of sight is not something to do quietly — the children move
    * up one level instead, and nothing stops being reachable.
    *
-   * The promotions are written before the folder goes, so an interruption
-   * leaves children that still point at a folder that exists rather than
-   * children pointing at one that does not.
+   * That fixed the subfolders. It missed the folder's own notes — the ones
+   * filed on it directly, not inside any child — which kept exactly the same
+   * dangling `folderId`, for exactly the same reason: on disk, undeleted,
+   * decryptable, and rendered nowhere. `reparentNotes` is the other half.
+   *
+   * A note cannot be homeless (`Note.folderId` is not nullable), so the
+   * destination has to be a folder that survives the delete: the parent, when
+   * there is one. A root folder has none, so its own notes go to another root
+   * folder that is left once this one and its promoted children are counted —
+   * or, if none is, to a freshly created one, the same default the workspace
+   * starts with when it has none at all.
+   *
+   * Every write below lands before `deleteFolder` does, so an interruption
+   * leaves rows pointing at folders that exist rather than at the one about
+   * to stop existing.
    */
   const removeFolder = useCallback(async (folderId: string) => {
     try {
-      const promoted = promoteChildren(foldersRef.current, folderId);
+      // The same reason `runSync` calls this at its own top: an edit still
+      // sitting in the two-second debounce is invisible to anything reading
+      // `notes` state. Writing it down first means the note this folder is
+      // about to lose is reparented as it actually reads on screen, not as it
+      // read before the last keystroke.
+      await persistPendingLocally();
+
+      const liveFolders = foldersRef.current;
+      const deleted = liveFolders.find(f => f.id === folderId);
+
+      const promoted = promoteChildren(liveFolders, folderId);
+
+      let destinationFolderId = deleted?.parentId ?? null;
+      let createdFolder: Folder | null = null;
+
+      if (destinationFolderId === null) {
+        const remainingRoots = liveFolders
+          .filter(f => f.id !== folderId)
+          .map(f => promoted.find(p => p.id === f.id) ?? f)
+          .filter(f => f.parentId === null);
+
+        if (remainingRoots.length > 0) {
+          destinationFolderId = remainingRoots[0].id;
+        } else {
+          createdFolder = {
+            id: nanoid(),
+            name: "My Notes",
+            parentId: null,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            order: 0,
+          };
+          destinationFolderId = createdFolder.id;
+        }
+      }
+
+      // Read fresh from storage rather than `notesRef.current`: the flush
+      // above just wrote the in-progress edit to IndexedDB, not to `notes`
+      // state, so the ref is exactly the stale copy this note would
+      // otherwise be reparented under.
+      const liveNotes = await getAllNotes(encryptionKeyRef.current ?? undefined);
+      const reparented = reparentNotes(liveNotes, folderId, destinationFolderId);
+
+      if (createdFolder) {
+        await saveFolder(createdFolder);
+      }
 
       for (const child of promoted) {
         await saveFolder(child);
       }
 
+      for (const note of reparented) {
+        if (encryptionKeyRef.current) {
+          await saveNote(note, encryptionKeyRef.current);
+        } else {
+          await saveNote(note);
+        }
+      }
+
       await deleteFolder(folderId);
 
-      setFolders(prev =>
-        prev
+      setFolders(prev => {
+        const next = prev
           .map(f => promoted.find(p => p.id === f.id) ?? f)
-          .filter(f => f.id !== folderId)
-      );
+          .filter(f => f.id !== folderId);
+        return createdFolder ? [...next, createdFolder] : next;
+      });
+
+      if (reparented.length > 0) {
+        setNotes(prev => prev.map(n => reparented.find(r => r.id === n.id) ?? n));
+
+        // If the note on screen was one of them, it is still carrying the
+        // deleted folder's id in this state — a separate copy from the one
+        // `notes` just got. The sidebar opens whichever folder holds
+        // `currentNote`, precisely so a note does not disappear the moment it
+        // is looked at; that effect reads this field, not the array, so it is
+        // this field that has to move too.
+        const openNote = currentNoteRef.current;
+        const stillOpen =
+          openNote && reparented.find(r => r.id === openNote.id);
+        if (stillOpen) setCurrentNote(stillOpen);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete folder");
     }

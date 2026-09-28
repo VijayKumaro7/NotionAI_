@@ -1,4 +1,4 @@
-import type { Folder } from "./storage";
+import type { Folder, Note } from "./storage";
 import { sortByOrder } from "./dragDropUtils";
 
 /**
@@ -84,4 +84,33 @@ export function promoteChildren(folders: Folder[], folderId: string): Folder[] {
   return folders
     .filter(f => f.parentId === folderId && f.id !== folderId)
     .map(f => ({ ...f, parentId, updatedAt: Date.now() }));
+}
+
+/**
+ * The notes that need rewriting when `folderId` is deleted: everything filed
+ * directly on it, refiled into `destinationFolderId`.
+ *
+ * `promoteChildren` lifts the deleted folder's *subfolders*; a note sitting
+ * directly in the deleted folder is not inside any of those, so nothing else
+ * moves it. Left alone it keeps a `folderId` that now names nothing — on
+ * disk, undeleted, still decryptable, and invisible, because `getFolderNotes`
+ * is only ever called with the id of a folder that still exists. That is the
+ * exact failure `promoteChildren`'s own doc comment already names as the
+ * reason folders get lifted rather than deleted with their parent; it just
+ * never reached the parent's own notes, only its child folders.
+ *
+ * `destinationFolderId` is the caller's decision, not this function's: it has
+ * to be a folder that will still exist once the delete completes, and unlike
+ * a folder, a note cannot be homeless (`Note.folderId` is not nullable), so
+ * picking that destination sometimes means creating one — IO this function,
+ * being pure, cannot do.
+ */
+export function reparentNotes(
+  notes: Note[],
+  folderId: string,
+  destinationFolderId: string
+): Note[] {
+  return notes
+    .filter(n => n.folderId === folderId)
+    .map(n => ({ ...n, folderId: destinationFolderId, updatedAt: Date.now() }));
 }

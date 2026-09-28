@@ -69,6 +69,7 @@ export interface StoredNote {
   id: string;
   title: string;
   content: string;
+  folderId: string;
   isEncrypted: boolean;
   updatedAt: number;
 }
@@ -94,6 +95,35 @@ export async function readStoredNotes(page: Page): Promise<StoredNote[]> {
             .objectStore("notes")
             .getAll();
           getAll.onsuccess = () => resolve(getAll.result as StoredNote[]);
+          getAll.onerror = () => reject(getAll.error);
+        };
+      })
+  );
+}
+
+export interface StoredFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
+}
+
+/** The `folders` store directly, for the same reason `readStoredNotes` reads
+ * `notes` directly: proving what a note's `folderId` now points at means
+ * checking that a folder with that id genuinely still exists, not trusting
+ * that the sidebar would have said something if it did not. */
+export async function readStoredFolders(page: Page): Promise<StoredFolder[]> {
+  return page.evaluate(
+    () =>
+      new Promise<StoredFolder[]>((resolve, reject) => {
+        const request = indexedDB.open("NotionAINotepad");
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const db = request.result;
+          const getAll = db
+            .transaction(["folders"], "readonly")
+            .objectStore("folders")
+            .getAll();
+          getAll.onsuccess = () => resolve(getAll.result as StoredFolder[]);
           getAll.onerror = () => reject(getAll.error);
         };
       })
