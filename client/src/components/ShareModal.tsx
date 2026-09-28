@@ -34,6 +34,7 @@ import {
   NoteShare,
   ShareActivity,
 } from "@/lib/storage";
+import { copyToClipboard } from "@/lib/clipboard";
 
 interface ShareModalProps {
   noteId: string;
@@ -109,10 +110,11 @@ export default function ShareModal({
     }
   };
 
-  const handleCopyLink = (shareToken: string) => {
+  const handleCopyLink = async (shareToken: string) => {
     const shareUrl = `${window.location.origin}/shared/${shareToken}`;
-    navigator.clipboard.writeText(shareUrl);
-    toast.success("Share link copied to clipboard");
+    const ok = await copyToClipboard(shareUrl);
+    if (ok) toast.success("Share link copied to clipboard");
+    else toast.error("Could not copy — select the link and copy it manually.");
   };
 
   const handleRevokeShare = async (shareId: string) => {

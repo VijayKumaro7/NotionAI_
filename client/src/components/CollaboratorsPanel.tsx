@@ -12,6 +12,7 @@ import { Copy, Link2, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { copyToClipboard } from "@/lib/clipboard";
 
 type GrantableRole = "editor" | "viewer";
 
@@ -125,11 +126,12 @@ export function CollaboratorsPanel({
     onError: showError,
   });
 
-  const copyLink = (token: string) => {
-    void navigator.clipboard.writeText(
+  const copyLink = async (token: string) => {
+    const ok = await copyToClipboard(
       `${window.location.origin}/shared/${token}`
     );
-    toast.success("Link copied to clipboard");
+    if (ok) toast.success("Link copied to clipboard");
+    else toast.error("Could not copy — select the link and copy it manually.");
   };
 
   if (!isAuthenticated) {

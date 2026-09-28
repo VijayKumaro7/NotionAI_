@@ -140,6 +140,16 @@ pnpm db:push
   let go of the attempt as well as abort it — aborting does not recall a reply
   already on its way, and an attempt the panel still holds is one it will use
   when it lands.
+- **A copy button goes through `copyToClipboard` (`lib/clipboard.ts`), never
+  `navigator.clipboard.writeText` directly.** `writeText` is `undefined` on a
+  non-secure origin and can reject even where it exists — no direct user
+  gesture, a permission prompt dismissed, a document that lost focus. Two
+  components discovered this independently and wrote their own try/catch;
+  four others called it unguarded and told the user "Copied" whether or not it
+  landed, which for a recovery phrase or a two-step recovery code is a lie
+  about the one thing that cannot be shown again. The helper returns whether
+  it actually worked; the caller decides its own wording and, on failure, says
+  so rather than staying silent.
 
 ### Backend
 

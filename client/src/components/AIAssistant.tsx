@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { createInFlight } from "@/lib/inFlight";
+import { copyToClipboard } from "@/lib/clipboard";
 import { toast } from "sonner";
 
 interface AIAssistantProps {
@@ -167,11 +168,11 @@ export function AIAssistant({
     }
   }, [result, onInsert]);
 
-  const handleCopy = useCallback(() => {
-    if (result) {
-      navigator.clipboard.writeText(result);
-      toast.success("Copied to clipboard");
-    }
+  const handleCopy = useCallback(async () => {
+    if (!result) return;
+    const ok = await copyToClipboard(result);
+    if (ok) toast.success("Copied to clipboard");
+    else toast.error("Could not copy — select the text and copy it manually.");
   }, [result]);
 
   return (

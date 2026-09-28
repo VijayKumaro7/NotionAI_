@@ -7,6 +7,7 @@ import { downloadBlob } from "@/lib/exportService";
 import { importRecoveryPhrase } from "@/lib/keyImport";
 import { encodeRecoveryPhrase } from "@/lib/recoveryPhrase";
 import { LOCAL_KEY_ID, readEncryptionKeyBytes } from "@/lib/storage";
+import { copyToClipboard } from "@/lib/clipboard";
 
 /**
  * Carrying the encryption key to another browser.
@@ -58,15 +59,12 @@ export function EncryptionKey() {
 
   const copy = async () => {
     if (!phrase) return;
-    try {
-      await navigator.clipboard.writeText(phrase);
-      toast.success("Recovery phrase copied.");
-    } catch {
-      // Clipboard access is refused in plenty of ordinary situations — an
-      // insecure origin, a permission prompt someone dismissed. The phrase is
-      // on screen and selectable, so say that rather than failing silently.
-      toast.error("Could not copy — select the phrase and copy it by hand.");
-    }
+    const ok = await copyToClipboard(phrase);
+    if (ok) toast.success("Recovery phrase copied.");
+    // Clipboard access is refused in plenty of ordinary situations — an
+    // insecure origin, a permission prompt someone dismissed. The phrase is
+    // on screen and selectable, so say that rather than failing silently.
+    else toast.error("Could not copy — select the phrase and copy it by hand.");
   };
 
   const download = () => {
