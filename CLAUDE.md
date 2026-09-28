@@ -418,6 +418,23 @@ pnpm db:push
   number of notes. Sequential code pins that at 1 however many notes there are,
   so the regression is caught deterministically — a timing threshold would
   flake on a loaded CI runner and would not say which path regressed.
+- **A profile beats a second guess.** After the two fixes above, a real CPU
+  profile (Playwright driving real Chromium, `Profiler.start`/`stop` over the
+  CDP session — not `pnpm test:e2e`'s own suite, a one-off investigation) of a
+  cold reload and of typing, both against a seeded 300-note workspace, came
+  back 78–86% idle with no function attributed over 2% of sampled time. The
+  largest single contributor while typing was React's own reconciler, not
+  application code. Before that, `shared/crdt.ts`'s `encodeUpdate` looked like
+  the same base64-decode anti-pattern above by pattern-matching alone — a
+  one-char-at-a-time string-concatenation loop, where the fix above replaced
+  exactly that shape. Benchmarked instead of "obviously" fixed: it was already
+  faster than the chunked alternative at every size tried, because V8's rope
+  strings handle repeated small concatenations well and the chunked version's
+  own `Array.from` call reintroduces the boxed-array cost the fix above was
+  removing. Left alone. The lesson both ways: measure the specific code in
+  front of you, because a shape that looks like a known anti-pattern is not
+  always one, and a real profile finds better targets than reading the source
+  for another copy of yesterday's bug.
 
 ### Testing
 

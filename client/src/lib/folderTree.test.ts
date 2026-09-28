@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import type { Folder } from "./storage";
+import type { Folder, Note } from "./storage";
 import {
   childFolders,
   descendantIds,
   promoteChildren,
+  reparentNotes,
   rootFolders,
 } from "./folderTree";
 
@@ -15,6 +16,20 @@ function folder(id: string, parentId: string | null, order = 0): Folder {
     order,
     createdAt: 0,
     updatedAt: 0,
+  };
+}
+
+function note(id: string, folderId: string): Note {
+  return {
+    id,
+    title: id,
+    content: "",
+    folderId,
+    tags: [],
+    order: 0,
+    createdAt: 0,
+    updatedAt: 0,
+    isEncrypted: false,
   };
 }
 
@@ -113,5 +128,34 @@ describe("promoteChildren", () => {
 
     expect(promoted.map(f => f.id)).toEqual(["child"]);
     expect(promoted[0].parentId).toBeNull();
+  });
+});
+
+describe("reparentNotes", () => {
+  it("refiles notes filed directly on the folder", () => {
+    const notes = [note("a", "deleted"), note("b", "deleted")];
+    const reparented = reparentNotes(notes, "deleted", "elsewhere");
+
+    expect(reparented.map(n => [n.id, n.folderId])).toEqual([
+      ["a", "elsewhere"],
+      ["b", "elsewhere"],
+    ]);
+  });
+
+  it("leaves notes in other folders out of the result entirely", () => {
+    const notes = [note("mine", "deleted"), note("not-mine", "other")];
+    const reparented = reparentNotes(notes, "deleted", "elsewhere");
+
+    expect(reparented.map(n => n.id)).toEqual(["mine"]);
+  });
+
+  it("is empty when the folder held no notes directly", () => {
+    const notes = [note("in-a-subfolder", "child-of-deleted")];
+    expect(reparentNotes(notes, "deleted", "elsewhere")).toEqual([]);
+  });
+
+  it("stamps updatedAt on every note it moves", () => {
+    const [moved] = reparentNotes([note("a", "deleted")], "deleted", "root");
+    expect(moved.updatedAt).toBeGreaterThan(0);
   });
 });
