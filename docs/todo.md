@@ -87,7 +87,7 @@
 - [x] Cover the autosave guard on a note the sync installed
 - [x] Cover a pending edit being written down before the pull
 - [x] Stop merely opening a note re-dating it, and beating a newer edit
-- [ ] Performance optimization
+- [x] Performance optimization
 - [ ] Browser compatibility testing
 - [x] Security audit for encryption
 - [ ] User experience testing
@@ -98,6 +98,21 @@
 - [x] Decrypt a batch of notes together rather than one after another
 - [x] Stop the base64 decode costing more than the cryptography it feeds
 - [x] Guard both by asserting the shape, not by timing anything
+
+## Profiling The Real Browser Instead Of Guessing From The Code
+
+- [x] Seed a 300-note workspace and take a real CPU profile of a cold reload
+- [x] Take one of opening a note and typing in that same workspace
+- [x] Check a hypothesis before shipping it — `shared/crdt.ts`'s `encodeUpdate`
+      looked like the same base64 anti-pattern already fixed elsewhere;
+      benchmarked instead of assumed, and it is already the faster of the two
+      shapes at every size tried, so it was left alone
+- [x] Conclude honestly: both profiles ran 78–86% idle, no function attributed
+      over 2% of sampled time, and the largest single contributor during
+      typing was React's own reconciler, not application code. There is
+      nothing further to fix that this profiling found — not a claim that
+      every scenario was tried, but the two most obvious ones (a cold load
+      and typing) came back clean after the decrypt and base64 fixes above
 
 ## A Real Browser, At Least One
 
