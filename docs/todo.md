@@ -133,6 +133,24 @@
 - [x] Prove a note survives a real reload, through the real autosave debounce
 - [ ] The same, in Firefox and Safari — left undone; only Chromium is installed here
 
+## A Recording That Outlived Its Own Reference
+
+- [x] Find the blob: URL that was created once per recording and never
+      revoked — `exportService.ts` and `TwoFactorSettings.tsx` already
+      revoke theirs, `VoiceMemo.tsx` never did
+- [x] Revoke it wherever the recording is discarded: delete, a successful
+      transcription, and unmount — not just where the state setter clears it
+- [x] Fold `VoiceMemo`'s own hand-built download anchor into the existing
+      `downloadBlob` helper, which appends to the document before clicking;
+      the local copy didn't, the same no-op risk `TwoFactorSettings.tsx`
+      already documents
+- [x] Add the `@vitejs/plugin-react` `vitest.config.ts` was missing — no
+      client test had rendered a component with real JSX before, so the gap
+      was invisible until this one tried to
+- [x] Prove it: `URL.revokeObjectURL` spied on through record → delete,
+      record → transcribe, and unmount, each failing against the pre-fix
+      component and passing against the fix
+
 ## Completed Features
 
 ### Core Infrastructure

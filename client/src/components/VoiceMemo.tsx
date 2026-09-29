@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { Mic, Square, Play, Trash2, Download, Volume2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { createInFlight } from "@/lib/inFlight";
+import { downloadBlob } from "@/lib/exportService";
 import { toast } from "sonner";
 
 interface VoiceMemoProps {
@@ -41,12 +42,43 @@ export function VoiceMemo({ onTranscription }: VoiceMemoProps) {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  // Mirrors audioURL so the unmount cleanup below can reach the current
+  // value without depending on it — a dependency here would re-run the
+  // effect, and revoke-then-immediately-recreate, on every recording.
+  const audioURLRef = useRef<string>("");
 
   // The vanilla client rather than the mutation hook: cancelling needs an
   // AbortSignal per request, and the hook builds its own call with nowhere to
   // put one. Same reason as the chat box.
   const utils = trpc.useUtils();
   const inFlight = useMemo(createInFlight, []);
+
+  /**
+   * A blob: URL keeps its Blob alive in the browser until revoked, not until
+   * garbage collected — `setAudioURL("")` drops the only reference this
+   * component held but leaves the underlying recording pinned in memory for
+   * the rest of the page's life. `exportService.ts` and
+   * `TwoFactorSettings.tsx` revoke theirs immediately because the URL only
+   * exists to drive one `<a>` click; this one has to survive for playback
+   * and download, so it is revoked here instead, wherever the recording is
+   * discarded.
+   */
+  const clearRecording = useCallback(() => {
+    if (audioURLRef.current) URL.revokeObjectURL(audioURLRef.current);
+    setRecordedAudio(null);
+    setAudioURL("");
+    setDuration(0);
+  }, []);
+
+  useEffect(() => {
+    audioURLRef.current = audioURL;
+  }, [audioURL]);
+
+  useEffect(() => {
+    return () => {
+      if (audioURLRef.current) URL.revokeObjectURL(audioURLRef.current);
+    };
+  }, []);
 
   const startRecording = useCallback(async () => {
     try {
@@ -122,9 +154,7 @@ export function VoiceMemo({ onTranscription }: VoiceMemoProps) {
       onTranscription(`[${timestampStr}] ${text}`, timestamp);
       toast.success("Transcription completed");
 
-      setRecordedAudio(null);
-      setAudioURL("");
-      setDuration(0);
+      clearRecording();
     } catch (error) {
       // This attempt's own signal, not whatever is current: a stop is
       // announced where it was asked for, so there is nothing to say here.
@@ -141,7 +171,7 @@ export function VoiceMemo({ onTranscription }: VoiceMemoProps) {
       // switch off the button belonging to the one that replaced it.
       if (inFlight.settle(attempt)) setIsTranscribing(false);
     }
-  }, [recordedAudio, onTranscription, utils, inFlight]);
+  }, [recordedAudio, onTranscription, utils, inFlight, clearRecording]);
 
   /**
    * Stop a transcription in flight.
@@ -162,13 +192,12 @@ export function VoiceMemo({ onTranscription }: VoiceMemoProps) {
   }, [inFlight]);
 
   const handleDownload = useCallback(() => {
-    if (audioURL) {
-      const a = document.createElement("a");
-      a.href = audioURL;
-      a.download = `voice-memo-${Date.now()}.webm`;
-      a.click();
-    }
-  }, [audioURL]);
+    if (!recordedAudio) return;
+    // Goes through the shared helper rather than building its own anchor:
+    // that version skips `document.body.appendChild`, which is a no-op in
+    // some browsers on a detached element (see TwoFactorSettings.tsx).
+    downloadBlob(recordedAudio, `voice-memo-${Date.now()}.webm`);
+  }, [recordedAudio]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -253,11 +282,7 @@ export function VoiceMemo({ onTranscription }: VoiceMemoProps) {
               <Download className="w-4 h-4" />
             </button>
             <button
-              onClick={() => {
-                setRecordedAudio(null);
-                setAudioURL("");
-                setDuration(0);
-              }}
+              onClick={clearRecording}
               className="btn-notion-secondary btn-notion-sm"
               title="Delete recording"
             >
