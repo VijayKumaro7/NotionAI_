@@ -1,3 +1,4 @@
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";
 import path from "path";
 
@@ -5,6 +6,12 @@ const templateRoot = path.resolve(import.meta.dirname);
 
 export default defineConfig({
   root: templateRoot,
+  // `tsconfig.json` sets `jsx: "preserve"` and leaves the actual JSX ->
+  // JS transform to this plugin, the same as `vite.config.ts` does for the
+  // real app. Every test here so far only used `renderHook` — no JSX of its
+  // own — so this was missing without anything failing: a `.test.tsx` that
+  // calls `render(<Component />)` needs it and fails to parse without it.
+  plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(templateRoot, "client", "src"),

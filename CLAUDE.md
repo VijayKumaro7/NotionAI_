@@ -150,6 +150,21 @@ pnpm db:push
   about the one thing that cannot be shown again. The helper returns whether
   it actually worked; the caller decides its own wording and, on failure, says
   so rather than staying silent.
+- **A `URL.createObjectURL` result is revoked wherever the thing it names is
+  discarded, not just dereferenced.** `exportService.ts`'s `downloadBlob` and
+  `TwoFactorSettings.tsx`'s recovery-code download both revoke immediately —
+  the URL only exists to drive one `<a>` click. `VoiceMemo.tsx`'s did not:
+  the URL backs the `<audio>` player and the download button, so it has to
+  outlive the click, and `setAudioURL("")` on delete, on a successful
+  transcription, and never on unmount looked like cleanup but only dropped
+  the component's own reference — the browser kept the recording pinned in
+  memory regardless. Revoked now at all three, via one `clearRecording` and
+  an unmount effect reading a ref, since the state setter that clears
+  `audioURL` cannot also be the thing revoking it without going stale.
+  `handleDownload` was also building its own detached `<a>` from the persisted
+  URL — the same no-op-on-some-browsers shape the comment in
+  `TwoFactorSettings.tsx` already warns about — and now goes through
+  `downloadBlob` instead of a second copy of that anchor dance.
 
 ### Backend
 
@@ -333,6 +348,13 @@ pnpm db:push
   client project because the server one runs on node and cannot import it.
   Cleanup is explicit because this repo does not set `globals: true`, so
   Testing Library's automatic version never runs.
+- **`vitest.config.ts` needs its own `@vitejs/plugin-react`, separate from
+  `vite.config.ts`'s.** `tsconfig.json` sets `jsx: "preserve"` and leaves the
+  JSX-to-JS transform to that plugin; every client test before
+  `VoiceMemo.test.tsx` used `renderHook` with no JSX of its own, so a test
+  config missing the plugin looked identical to one that had it — nothing
+  failed until the first test called `render(<Component />)` directly, which
+  couldn't even parse.
 - **Mock `trpc` and `useAuth`, and nothing else.** `hooks/useNotes.sync.test.tsx`
   drives the real hook against real IndexedDB, real AES-GCM, the real merge and
   the real debounce. The first thing it caught was a bug every pure test
