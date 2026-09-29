@@ -288,6 +288,27 @@ On a managed host (Render, Railway, Fly, Cloud Run, a VM):
   rebuild, not a restart.
 - **Database** — provision MySQL and run `pnpm db:push` once against it.
 
+### Behind your own reverse proxy
+
+A managed platform already puts a proxy in front of the server. On a machine
+you run yourself, `deploy/nginx/notepad.conf` is a ready nginx site: it
+terminates TLS, redirects HTTP to HTTPS, forwards the WebSocket upgrade on
+`/api/collaborate` with a long idle timeout, and raises the body limit to match
+the server's 25mb. Copy it into `/etc/nginx/sites-available/`, replace the
+domain and certificate paths, and run the Node process with:
+
+```env
+PORT=3000
+PUBLIC_ORIGIN=https://notes.example.com
+TRUSTED_PROXY_HOPS=1
+```
+
+The server trusts `X-Forwarded-Proto` to know a request arrived over HTTPS, and
+reads the client address from the right-hand end of `X-Forwarded-For`, counting
+`TRUSTED_PROXY_HOPS` proxies back. Put a CDN in front of nginx and that becomes
+2; get it wrong and the rate limits either lump every visitor together or let
+a caller choose their own address.
+
 ### Render
 
 `render.yaml` in the repo root is a Blueprint. In Render choose **New →

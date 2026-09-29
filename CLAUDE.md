@@ -56,6 +56,7 @@ NotionAI_Notepad/
 ├── drizzle/
 │   ├── schema.ts        # DB schema (users, notes, …)
 │   └── relations.ts     # Drizzle relation definitions
+├── deploy/nginx/        # Reverse-proxy config for self-hosting (not used on Render)
 ├── docs/                # Screenshots and the project TODO
 ├── drizzle.config.ts
 ├── vite.config.ts
