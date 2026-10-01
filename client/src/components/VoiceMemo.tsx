@@ -10,6 +10,20 @@ interface VoiceMemoProps {
 }
 
 /**
+ * The file extension a recording's actual MIME type implies.
+ *
+ * Chrome and Firefox record `audio/webm`; Safari does not support that
+ * container at all and records `audio/mp4` instead. A download extension
+ * that disagrees with the bytes inside it opens wrong in whatever the OS
+ * hands it to next, so this reads the type rather than assuming one.
+ */
+function fileExtension(mimeType: string): string {
+  const subtype = mimeType.split(";")[0].split("/")[1];
+  if (subtype === "mp4") return "m4a";
+  return subtype || "webm";
+}
+
+/**
  * Base64 for the recording, via a data: URL.
  *
  * Deliberately not `btoa(String.fromCharCode(...bytes))`: spreading a typed
@@ -93,7 +107,13 @@ export function VoiceMemo({ onTranscription }: VoiceMemoProps) {
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        // `mediaRecorder.mimeType` is what the browser actually encoded, not
+        // an assumption — Safari reports `audio/mp4` here, and a Blob labelled
+        // `audio/webm` over those bytes fails to play back and transcribes
+        // under the wrong format.
+        const blob = new Blob(chunksRef.current, {
+          type: mediaRecorder.mimeType || "audio/webm",
+        });
         setRecordedAudio(blob);
         setAudioURL(URL.createObjectURL(blob));
         stream.getTracks().forEach(track => track.stop());
@@ -196,7 +216,8 @@ export function VoiceMemo({ onTranscription }: VoiceMemoProps) {
     // Goes through the shared helper rather than building its own anchor:
     // that version skips `document.body.appendChild`, which is a no-op in
     // some browsers on a detached element (see TwoFactorSettings.tsx).
-    downloadBlob(recordedAudio, `voice-memo-${Date.now()}.webm`);
+    const extension = fileExtension(recordedAudio.type || "audio/webm");
+    downloadBlob(recordedAudio, `voice-memo-${Date.now()}.${extension}`);
   }, [recordedAudio]);
 
   const formatDuration = (seconds: number) => {

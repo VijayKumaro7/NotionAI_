@@ -111,6 +111,27 @@
 - [ ] `Browser compatibility testing` stays open — this closed one class of
       finding, not the item
 
+## A Recording Labelled By Assumption, Not By What It Was
+
+- [x] Same method as the copy button: find where this app assumes Chromium's
+      behaviour is every browser's. `VoiceMemo.tsx` records with
+      `new MediaRecorder(stream)` and no explicit type, then hardcodes the
+      resulting Blob as `audio/webm` — true on Chrome and Firefox, false on
+      Safari, which has no webm support and records `audio/mp4` instead
+- [x] Read `mediaRecorder.mimeType` — the spec-defined, actual negotiated
+      type — rather than assuming, for both the Blob label used for playback
+      and transcription, and the extension a download is saved under
+- [x] The server side was already ready for this: `getFileExtension` in
+      `_core/voiceTranscription.ts` has mapped `audio/mp4` to `.m4a` all
+      along. Only the client was sending the wrong label
+- [x] Prove it: a fake `MediaRecorder` reporting `audio/mp4`, the way Safari's
+      would, and assert the download extension and the mimeType sent to
+      transcription both follow it rather than staying `.webm` — failing
+      against the pre-fix code and passing against the fix
+- [ ] `Browser compatibility testing` stays open — two classes closed now
+      (clipboard, this one), not the item itself; nothing here rules out a
+      third
+
 ## Profiling The Real Browser Instead Of Guessing From The Code
 
 - [x] Seed a 300-note workspace and take a real CPU profile of a cold reload
