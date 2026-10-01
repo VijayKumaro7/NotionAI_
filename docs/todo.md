@@ -171,6 +171,16 @@
 - [x] Prove it: `URL.revokeObjectURL` spied on through record → delete,
       record → transcribe, and unmount, each failing against the pre-fix
       component and passing against the fix
+- [x] A follow-up review of that fix found two more real paths: a transcribe
+      request still in flight after the recording it was transcribing was
+      deleted and replaced unconditionally discarded the replacement, and
+      unmounting mid-recording (before Stop was ever clicked) left the
+      microphone and the one-second timer running with nothing to stop them
+- [x] Verified live, not just in jsdom: the real component driven in real
+      Chromium via a throwaway dev route, a genuine `MediaRecorder` recording
+      fake-device audio, real `URL.createObjectURL`/`revokeObjectURL` spied
+      on — create/revoke paired across delete, download and unmount, with no
+      orphaned or double-revoked URLs across repeated cycles
 
 ## Completed Features
 

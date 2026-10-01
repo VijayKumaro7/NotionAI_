@@ -175,6 +175,34 @@ pnpm db:push
   not match its own bytes. `_core/voiceTranscription.ts`'s
   `getFileExtension` had `audio/mp4` mapped to `.m4a` all along — the server
   was ready before the client ever sent it the right thing.
+- **"Clear the recording" has to name which one.** `handleTranscribe`'s
+  success path used to call `clearRecording()` unconditionally, trusting that
+  whatever is loaded when the request resolves is still the recording it
+  transcribed. It can not be: Delete and Download sit beside the
+  Transcribe/Stop-transcribing button rather than behind it, so a person can
+  delete the recording a pending transcription is still working on and make
+  a new one before the old reply lands — and that unconditional clear then
+  revoked and discarded the _new_ recording in place of a transcription it
+  had nothing to do with. `inFlight.owns(attempt)` does not catch this: it
+  tells a superseded transcribe request from the current one, and nothing
+  here superseded it, since the person didn't start a second transcription,
+  they started a second recording. `handleTranscribe` now captures
+  `audioURLRef.current` as `transcribingURL` before awaiting, and only clears
+  if that identity still matches on the way out.
+- **An unmount mid-recording has to stop the recording, not just the
+  leftovers of a finished one.** The unmount effect's revoke only ever had a
+  URL to act on once `onstop` had already run; if the panel unmounts while
+  `isRecording` is still true — switching notes, signing out, before Stop was
+  ever clicked — nothing had called `.stop()` on the `MediaRecorder`, so the
+  mic stayed open and the one-second `setInterval` kept firing into an
+  unmounted component indefinitely. The unmount cleanup now stops the
+  recorder too, which is what releases the mic (via `onstop`'s own
+  `track.stop()`), and clears the timer. Doing that on its own would recreate
+  the first bug from the other side — `.stop()` is itself what triggers
+  `onstop`, now firing after the component has already unmounted — so
+  `onstop` checks an `isMountedRef` before creating a blob or calling
+  `setAudioURL` at all, rather than creating a URL and hoping something is
+  still there to revoke it.
 
 ### Backend
 

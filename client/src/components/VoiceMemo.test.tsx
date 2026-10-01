@@ -65,6 +65,7 @@ class FakeMediaRecorder {
 
 let createdURLs: string[] = [];
 let revokedURLs: string[] = [];
+let stopTrack: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   FakeMediaRecorder.instances = [];
@@ -76,7 +77,7 @@ beforeEach(() => {
 
   vi.stubGlobal("MediaRecorder", FakeMediaRecorder);
 
-  const stopTrack = vi.fn();
+  stopTrack = vi.fn();
   const fakeStream = {
     getTracks: () => [{ stop: stopTrack }],
   } as unknown as MediaStream;
@@ -166,6 +167,86 @@ describe("recording lifecycle", () => {
     const { unmount } = render(<VoiceMemo onTranscription={vi.fn()} />);
     unmount();
     expect(revokedURLs).toHaveLength(0);
+  });
+
+  it("releases the microphone and never creates a URL when unmounted mid-recording", async () => {
+    const { unmount } = render(<VoiceMemo onTranscription={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /start recording/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /stop recording/i })
+      ).not.toBeNull()
+    );
+
+    // No `.stop()` was ever clicked — the recording is still in progress,
+    // with no blob and no URL yet, when the panel goes away (switching
+    // notes, signing out).
+    expect(createdURLs).toHaveLength(0);
+    unmount();
+
+    // `MediaRecorder.stop()` is synchronous in this fake and fires `onstop`
+    // immediately, which checks `isMountedRef` before creating anything —
+    // so this proves both halves at once: the mic was released, and doing
+    // so didn't leak a URL nothing is left to revoke.
+    expect(stopTrack).toHaveBeenCalledTimes(1);
+    expect(createdURLs).toHaveLength(0);
+    expect(revokedURLs).toHaveLength(0);
+  });
+});
+
+describe("transcribing a recording", () => {
+  it("does not discard a newer recording made while an old transcription was still in flight", async () => {
+    // A promise this test controls, so the request can be left pending
+    // across a delete and a brand-new recording before it resolves.
+    let resolveTranscribe: (value: { text: string }) => void;
+    transcribeMock.mockReturnValue(
+      new Promise(resolve => {
+        resolveTranscribe = resolve;
+      })
+    );
+
+    await recordAndStop();
+    const recordingA = createdURLs[0];
+
+    fireEvent.click(screen.getByRole("button", { name: /^transcribe$/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /stop transcribing/i })
+      ).not.toBeNull()
+    );
+
+    // Delete and Download sit beside the Transcribe/Stop-transcribing
+    // button, not behind it — the panel never disables them while a
+    // transcription is in flight, so this is a real, reachable sequence,
+    // not a contrived race.
+    fireEvent.click(screen.getByRole("button", { name: /delete recording/i }));
+    expect(revokedURLs).toEqual([recordingA]);
+
+    fireEvent.click(screen.getByRole("button", { name: /start recording/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /stop recording/i })
+      ).not.toBeNull()
+    );
+    fireEvent.click(screen.getByRole("button", { name: /stop recording/i }));
+    await waitFor(() => expect(createdURLs).toHaveLength(2));
+    const recordingB = createdURLs[1];
+
+    // The stale request for A finally answers.
+    resolveTranscribe!({ text: "transcribed A" });
+
+    // Give the resolved promise's .then chain a turn, the same way the
+    // other tests let an async click settle — there is no further UI
+    // transition to wait on if the bug is present, since a wrongly cleared
+    // B looks identical to a correctly-kept B until the URL log is read.
+    await waitFor(() => expect(transcribeMock).toHaveBeenCalledTimes(1));
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    // B is what's on screen — only A's URL was ever revoked.
+    expect(revokedURLs).toEqual([recordingA]);
+    expect(createdURLs[1]).toBe(recordingB);
+    screen.getByRole("button", { name: /delete recording/i });
   });
 });
 

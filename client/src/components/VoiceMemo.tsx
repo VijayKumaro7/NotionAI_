@@ -58,8 +58,15 @@ export function VoiceMemo({ onTranscription }: VoiceMemoProps) {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   // Mirrors audioURL so the unmount cleanup below can reach the current
   // value without depending on it — a dependency here would re-run the
-  // effect, and revoke-then-immediately-recreate, on every recording.
+  // effect, and revoke-then-immediately-recreate, on every recording. Also
+  // what `handleTranscribe` checks before clearing: identity, not content,
+  // since two different recordings can legitimately produce the same text.
   const audioURLRef = useRef<string>("");
+  // False once the component has started unmounting. `onstop` is async and
+  // can still fire afterward — without this it would create a blob URL
+  // nothing is left to revoke, the same leak the unmount cleanup exists to
+  // close, just arriving from the other direction.
+  const isMountedRef = useRef(true);
 
   // The vanilla client rather than the mutation hook: cancelling needs an
   // AbortSignal per request, and the hook builds its own call with nowhere to
@@ -90,7 +97,17 @@ export function VoiceMemo({ onTranscription }: VoiceMemoProps) {
 
   useEffect(() => {
     return () => {
+      isMountedRef.current = false;
       if (audioURLRef.current) URL.revokeObjectURL(audioURLRef.current);
+      if (timerRef.current) clearInterval(timerRef.current);
+      // Stops the microphone too, via `onstop`'s own `track.stop()` below —
+      // otherwise a recording in progress when the panel unmounts (switching
+      // notes, signing out) never releases it: nothing else was going to
+      // call `.stop()` for it. `onstop` checks `isMountedRef` before
+      // touching state or creating a URL, so this can't resurrect either.
+      if (mediaRecorderRef.current?.state !== "inactive") {
+        mediaRecorderRef.current?.stop();
+      }
     };
   }, []);
 
@@ -107,6 +124,15 @@ export function VoiceMemo({ onTranscription }: VoiceMemoProps) {
       };
 
       mediaRecorder.onstop = () => {
+        // Unconditional: releasing the mic does not depend on whether
+        // anything is still around to show the recording.
+        stream.getTracks().forEach(track => track.stop());
+
+        // `.stop()` can be called by the unmount cleanup below, and this
+        // fires after that effect has already run — nothing is left to
+        // revoke a URL created here, so don't create one.
+        if (!isMountedRef.current) return;
+
         // `mediaRecorder.mimeType` is what the browser actually encoded, not
         // an assumption — Safari reports `audio/mp4` here, and a Blob labelled
         // `audio/webm` over those bytes fails to play back and transcribes
@@ -116,7 +142,6 @@ export function VoiceMemo({ onTranscription }: VoiceMemoProps) {
         });
         setRecordedAudio(blob);
         setAudioURL(URL.createObjectURL(blob));
-        stream.getTracks().forEach(track => track.stop());
       };
 
       mediaRecorder.start();
@@ -146,6 +171,13 @@ export function VoiceMemo({ onTranscription }: VoiceMemoProps) {
   const handleTranscribe = useCallback(async () => {
     if (!recordedAudio) return;
 
+    // Identifies *this* recording, not just this request. `inFlight.owns`
+    // below only tells a superseded transcribe attempt from the current
+    // one — it says nothing about whether the person deleted this
+    // recording and made a new one while the old request was still in
+    // flight, which `inFlight` has no reason to know about.
+    const transcribingURL = audioURLRef.current;
+
     // Outside the try, so the catch and finally can ask whether the attempt
     // they are cleaning up after is still the current one.
     const attempt = inFlight.start();
@@ -174,7 +206,14 @@ export function VoiceMemo({ onTranscription }: VoiceMemoProps) {
       onTranscription(`[${timestampStr}] ${text}`, timestamp);
       toast.success("Transcription completed");
 
-      clearRecording();
+      // Only clear the recording this request actually transcribed. If the
+      // person deleted it and recorded something new while this was in
+      // flight, `audioURLRef.current` now names that new recording instead —
+      // clearing unconditionally here would revoke and discard it in place
+      // of a transcription it has nothing to do with.
+      if (audioURLRef.current === transcribingURL) {
+        clearRecording();
+      }
     } catch (error) {
       // This attempt's own signal, not whatever is current: a stop is
       // announced where it was asked for, so there is nothing to say here.
