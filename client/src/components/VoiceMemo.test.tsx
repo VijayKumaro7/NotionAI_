@@ -39,10 +39,15 @@ vi.mock("@/lib/exportService", () => ({
   downloadBlob: downloadBlobMock,
 }));
 
+// Overridden per test to simulate a browser other than the Chrome/Firefox
+// default — Safari reports `audio/mp4` here instead of `audio/webm`.
+let fakeRecorderMimeType = "audio/webm";
+
 class FakeMediaRecorder {
   static instances: FakeMediaRecorder[] = [];
   ondataavailable: ((event: { data: Blob }) => void) | null = null;
   onstop: (() => void) | null = null;
+  mimeType = fakeRecorderMimeType;
 
   constructor(private stream: MediaStream) {
     FakeMediaRecorder.instances.push(this);
@@ -52,7 +57,7 @@ class FakeMediaRecorder {
 
   stop() {
     this.ondataavailable?.({
-      data: new Blob(["chunk"], { type: "audio/webm" }),
+      data: new Blob(["chunk"], { type: this.mimeType }),
     });
     this.onstop?.();
   }
@@ -66,6 +71,7 @@ beforeEach(() => {
   FakeMediaRecorder.instances = [];
   createdURLs = [];
   revokedURLs = [];
+  fakeRecorderMimeType = "audio/webm";
   transcribeMock.mockReset();
   downloadBlobMock.mockReset();
 
@@ -254,5 +260,33 @@ describe("downloading a recording", () => {
     const [blob, filename] = downloadBlobMock.mock.calls[0];
     expect(blob).toBeInstanceOf(Blob);
     expect(filename).toMatch(/^voice-memo-\d+\.webm$/);
+  });
+
+  it("saves under .m4a, not .webm, when the browser recorded audio/mp4", async () => {
+    // Safari's MediaRecorder: no webm support, mp4 instead. Before the fix the
+    // Blob was always labelled "audio/webm" regardless of what was actually
+    // recorded, so this filename stayed .webm even here — a file that opens
+    // wrong in whatever the OS hands it to, because it isn't webm inside.
+    fakeRecorderMimeType = "audio/mp4";
+    await recordAndStop();
+
+    fireEvent.click(screen.getByRole("button", { name: /download audio/i }));
+
+    const [, filename] = downloadBlobMock.mock.calls[0];
+    expect(filename).toMatch(/^voice-memo-\d+\.m4a$/);
+  });
+});
+
+describe("the recorded blob's declared type", () => {
+  it("matches what the browser actually encoded, not a hardcoded assumption", async () => {
+    fakeRecorderMimeType = "audio/mp4";
+    transcribeMock.mockResolvedValue({ text: "hello" });
+    await recordAndStop();
+
+    fireEvent.click(screen.getByRole("button", { name: /^transcribe$/i }));
+
+    await waitFor(() => expect(transcribeMock).toHaveBeenCalled());
+    const [{ mimeType }] = transcribeMock.mock.calls[0];
+    expect(mimeType).toBe("audio/mp4");
   });
 });

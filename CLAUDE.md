@@ -166,6 +166,15 @@ pnpm db:push
   URL — the same no-op-on-some-browsers shape the comment in
   `TwoFactorSettings.tsx` already warns about — and now goes through
   `downloadBlob` instead of a second copy of that anchor dance.
+- **`VoiceMemo.tsx` labels a recording by what `mediaRecorder.mimeType`
+  actually reports, never by assuming `audio/webm`.** Chrome and Firefox do
+  record webm, but Safari has no webm support and records `audio/mp4`
+  instead; the Blob built in `onstop` and the extension `handleDownload`
+  saves under both used to hardcode the former regardless, so a Safari
+  recording played back, downloaded, and transcribed under a label that did
+  not match its own bytes. `_core/voiceTranscription.ts`'s
+  `getFileExtension` had `audio/mp4` mapped to `.m4a` all along — the server
+  was ready before the client ever sent it the right thing.
 - **"Clear the recording" has to name which one.** `handleTranscribe`'s
   success path used to call `clearRecording()` unconditionally, trusting that
   whatever is loaded when the request resolves is still the recording it
