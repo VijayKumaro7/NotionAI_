@@ -132,6 +132,27 @@
       (clipboard, this one), not the item itself; nothing here rules out a
       third
 
+## A Drag That Never Started, In One Browser Only
+
+- [x] Same method again: `Sidebar.tsx`'s `handleNoteDragStart` and
+      `handleFolderDragStart` set `dataTransfer.effectAllowed` and tracked
+      the dragged item entirely through React state, but never called
+      `dataTransfer.setData`. Chrome does not require that call to begin a
+      drag; Firefox does, by spec, and refuses to start the drag at all
+      without it — so every drop handler in this file would be unreachable
+      there, silently, with nothing to see in a Chromium-only sandbox
+- [x] Call `setData` in both — the value itself is never read back, since
+      every drop handler already goes through `draggedItem` state, but the
+      call has to happen for Firefox to let the drag begin in the first
+      place
+- [x] First test for this component: render the real `Sidebar`, fire a real
+      `dragstart` with a fake `DataTransfer` (jsdom has none), and assert
+      `setData` was called for both a note row and a folder row — failing
+      against the pre-fix code and passing against the fix
+- [ ] `Browser compatibility testing` stays open — three classes closed now
+      (clipboard, voice memo mimeType, this one); still not a claim that a
+      fourth does not exist
+
 ## Profiling The Real Browser Instead Of Guessing From The Code
 
 - [x] Seed a 300-note workspace and take a real CPU profile of a cold reload
