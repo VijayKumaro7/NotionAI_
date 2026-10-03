@@ -233,6 +233,12 @@ export function Sidebar({
     (e: React.DragEvent, noteId: string) => {
       setDraggedItem({ id: noteId, type: "note" });
       e.dataTransfer.effectAllowed = "move";
+      // Firefox refuses to start the drag at all unless `setData` is called
+      // during `dragstart` — Chrome tracks the dragged item from in-page
+      // state and never needed this, which is why it went unnoticed here.
+      // The value itself is never read back; every drop handler below goes
+      // through `draggedItem` state instead.
+      e.dataTransfer.setData("text/plain", noteId);
     },
     []
   );
@@ -314,6 +320,8 @@ export function Sidebar({
     (e: React.DragEvent, folderId: string) => {
       setDraggedItem({ id: folderId, type: "folder" });
       e.dataTransfer.effectAllowed = "move";
+      // Same Firefox requirement as handleNoteDragStart above.
+      e.dataTransfer.setData("text/plain", folderId);
     },
     []
   );

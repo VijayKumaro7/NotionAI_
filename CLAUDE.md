@@ -203,6 +203,15 @@ pnpm db:push
   `onstop` checks an `isMountedRef` before creating a blob or calling
   `setAudioURL` at all, rather than creating a URL and hoping something is
   still there to revoke it.
+- **`Sidebar.tsx`'s drag handlers call `dataTransfer.setData`, not only
+  `effectAllowed`.** Firefox refuses to start an HTML5 drag at all without
+  that call during `dragstart` — a spec requirement Chrome does not enforce,
+  so a Chromium-only sandbox never surfaces it. `handleNoteDragStart` and
+  `handleFolderDragStart` tracked the dragged item entirely through React
+  state and never called it, which would make every drop handler in this
+  file silently unreachable in Firefox. The value itself is never read back
+  on drop — `draggedItem` state is what every handler actually uses — the
+  call only has to happen for the drag to begin.
 
 ### Backend
 
