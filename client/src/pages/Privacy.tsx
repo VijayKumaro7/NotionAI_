@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   Cookie,
   Database,
-  Globe,
   Monitor,
   Sparkles,
   Download,
@@ -180,6 +179,15 @@ export default function Privacy() {
                 is a deliberate trade, it applies only to notes you publish, and
                 private notes stay encrypted.
               </Item>
+              <Item name="Who you shared it with">
+                Inviting someone by email grants them a role — editor or viewer
+                — recorded against both accounts, so the server knows who may
+                open a note you have not published for everyone. A share link
+                works differently: anyone holding it gets the role attached to
+                that link rather than to an account, so what is stored there is
+                the link&apos;s own token and role, not a name. Either kind can
+                be revoked on its own.
+              </Item>
               <Item name="Chat transcripts">
                 Stored in clear text, unlike notes: the server has to rebuild a
                 conversation to send it to the model. The chat box has a{" "}
@@ -191,6 +199,30 @@ export default function Privacy() {
               <Item name="Two-step verification">
                 The shared secret is stored encrypted, so a database dump is not
                 a set of working second factors.
+              </Item>
+              <Item name="Sign-in links">
+                A password-reset or email-verification link is single-use, and
+                the database holds only a hash of it with an expiry — not the
+                token itself, which only exists in the email you were sent.
+              </Item>
+              <Item name="Where you are signed in">
+                Each signed-in session is a row: a coarse label like
+                &ldquo;Chrome on macOS&rdquo;, read from the browser and then
+                discarded, and a hashed copy of the address it signed in from
+                rather than the address itself — enough to answer &ldquo;is this
+                still me?&rdquo; without keeping something that could be read
+                back out. The account panel lists every one and can end any of
+                them; ending one takes effect on its very next request.
+              </Item>
+              <Item name="Security activity">
+                Sign-ins and failures, password and two-step changes, session
+                endings and the account&apos;s own deletion are each recorded as
+                a type, a hashed address, the same coarse device label, and a
+                short fixed reason — never the password that was tried, the link
+                from an email, or the cookie itself. A failed sign-in against an
+                address nobody registered is recorded without the address:
+                writing it down would turn failed guesses into a list of
+                addresses this deployment refuses to confirm.
               </Item>
               <Item name="Demo sessions">
                 A signed-out visitor&apos;s 30 minutes may be recorded against
@@ -244,10 +276,15 @@ export default function Privacy() {
             </p>
             <p>
               The file lists what it cannot contain as well as what it does:
-              your encryption key, notes other people shared with you, and the
-              readable copies of notes published for collaboration. An archive
-              that omits something quietly is worse than none, because the gap
-              is only found once the original is gone.
+              your encryption key; notes other people shared with you; the
+              readable copies of notes published for collaboration; cloud
+              backups, which are already whole copies of the same notes; and
+              version history and deleted notes still inside their recovery
+              window. Your signed-in devices and your account&apos;s security
+              log are not in it either — both are in the account panel, where
+              they can be acted on rather than only read. An archive that omits
+              something quietly is worse than none, because the gap is only
+              found once the original is gone.
             </p>
           </Section>
 
@@ -259,12 +296,13 @@ export default function Privacy() {
             </p>
             <p>
               The whole account can go, from Account in the app header. That
-              erases the synced notes, anything published for collaboration, the
-              saved chats, the cloud backups, the two-step enrolment and the
-              account row itself — permanently, with nothing held back to
-              recover from. It asks for your password, or a current code where
-              two-step verification is on, because being signed in is not the
-              same as still being you.
+              erases the synced notes, anything published for collaboration and
+              who it was shared with, the saved chats, the cloud backups, the
+              two-step enrolment, every sign-in session and the account&apos;s
+              whole security log, and the account row itself — permanently, with
+              nothing held back to recover from. It asks for your password, or a
+              current code where two-step verification is on, because being
+              signed in is not the same as still being you.
             </p>
             <p>
               The copy in this browser is a separate question, and the dialog
