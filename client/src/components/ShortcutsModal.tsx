@@ -29,6 +29,7 @@ export default function ShortcutsModal({
   >("All");
 
   const grouped = groupShortcutsByCategory();
+  const helpShortcut = SHORTCUTS.find(s => s.id === "help");
   const categories: (ShortcutCategory | "All")[] = [
     "All",
     "Navigation",
@@ -168,7 +169,7 @@ export default function ShortcutsModal({
           <p className="text-xs text-slate-600 dark:text-slate-400">
             💡 Tip: Press{" "}
             <kbd className="px-2 py-1 bg-slate-200 dark:bg-slate-700 rounded font-mono text-xs">
-              Cmd+?
+              {helpShortcut ? formatKeys(helpShortcut.keys) : "Cmd+?"}
             </kbd>{" "}
             anytime to open this help
           </p>
