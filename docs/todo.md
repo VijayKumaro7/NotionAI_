@@ -153,6 +153,27 @@
       (clipboard, voice memo mimeType, this one); still not a claim that a
       fourth does not exist
 
+## A Help Dialog That Named The Wrong Key, On Its Own Platform
+
+- [x] A fourth sweep for this sandbox's own sweep found nothing new, so the
+      same method was turned on the platform axis instead of the browser
+      one: where does this app assume one keyboard is everyone's, the way
+      it was assuming one engine was. `lib/shortcuts.ts` already does this
+      correctly everywhere — `matchesShortcut` reads `navigator.platform`
+      to decide whether "Cmd" means Meta or Control, and `formatKeys`
+      renders `⌘`/`Ctrl` to match — except `ShortcutsModal.tsx`'s own
+      footer tip, which hardcoded the literal text `Cmd+?` instead of
+      calling `formatKeys` like every shortcut row above it does
+- [x] Fixed by looking up the `help` shortcut and formatting its keys, with
+      the old literal string kept only as a fallback for the case where it
+      is not found
+- [x] First test for this component: render the real dialog on a stubbed
+      `navigator.platform`, and check the footer's own `<kbd>` specifically
+      — the shortcut list above it renders the same shortcut's keys too,
+      in a plain `<div>`, so a bare text query would have matched both and
+      proven nothing. Fails against the pre-fix code (`Cmd+?` on Windows),
+      passes against the fix (`Ctrl+?`)
+
 ## Profiling The Real Browser Instead Of Guessing From The Code
 
 - [x] Seed a 300-note workspace and take a real CPU profile of a cold reload

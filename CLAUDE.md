@@ -212,6 +212,15 @@ pnpm db:push
   file silently unreachable in Firefox. The value itself is never read back
   on drop — `draggedItem` state is what every handler actually uses — the
   call only has to happen for the drag to begin.
+- **A shortcut's key label goes through `formatKeys` (`lib/shortcuts.ts`),
+  never a literal string.** It reads `navigator.platform` so "Cmd" renders
+  as `⌘` on a Mac and `Ctrl` everywhere else, and every row in
+  `ShortcutsModal.tsx`'s shortcut list already went through it — except the
+  footer's own tip, which hardcoded `Cmd+?` and showed a key a Windows or
+  Linux keyboard does not have. Same class of bug as the drag-and-drop one
+  above, just on the platform axis instead of the browser one: something
+  elsewhere in the same file already did this correctly, and one spot
+  didn't go through it.
 
 ### Backend
 
