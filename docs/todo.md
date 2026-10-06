@@ -433,6 +433,15 @@
 - [x] Give `Input`, `Textarea` and `SelectTrigger` a `variant="notion"` instead of a class fight
 - [x] Drop the two `!important` workarounds the trap had forced
 - [x] Prove it inert by diffing computed styles in Chromium, light and dark
+- [x] One rule the audit missed, found later: `.container` — both the base
+      definition and its own 768px override — sat unlayered at the bottom of
+      the file the whole time. Nothing currently writes `className="container"`
+      anywhere, so it changed nothing visible; moved into `@layer components`
+      alongside `.btn-notion`, consolidated with its responsive override, so
+      the day something does use it, a call-site utility wins rather than
+      losing silently. Confirmed in the built CSS that cascade layer order is
+      `base < components < utilities`, so `@layer components` is correctly
+      outranked by any Tailwind utility class, same as `.btn-notion` already is
 
 ## Never Losing the Other Side of an Edit
 

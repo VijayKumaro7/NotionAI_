@@ -119,6 +119,11 @@ pnpm db:push
   and the only way to notice is to measure the computed style. `.btn-notion*`,
   `.input-notion` and `.editor-*` all live in `@layer components`; keep them
   there and a call-site utility wins, which is what anyone would expect.
+  `.container` sat outside every layer for a long time after that audit —
+  missed because nothing writes `className="container"` anywhere, so it had
+  no visible effect to catch the eye. It is in `@layer components` now, same
+  as `.btn-notion*`; a new custom class belongs there too, on sight, not
+  only once something using it demonstrates the bug.
 - **A control is one thing, not two fighting.** These classes are complete
   components rendered on plain elements, not a look layered onto a shadcn
   primitive that already styles itself — that fight is what made the

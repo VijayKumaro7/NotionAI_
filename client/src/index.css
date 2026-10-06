@@ -485,8 +485,24 @@ body {
   @apply h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent;
 }
 
-.container {
-  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+/* A custom class, same as `.btn-notion`, so it belongs in the same layer —
+ * not `@layer base`, which this file reserves for bare element selectors
+ * like `h1`. Both rules below sat unlayered until now, missed by the audit
+ * in "Stop the stylesheet overruling the call site" that fixed exactly this
+ * mistake elsewhere in this file. Nothing currently applies `container` as a
+ * call-site class, so consolidating it here changed nothing visible; left
+ * alone, it would have silently beaten a wider padding or max-width utility
+ * written next to it the moment something did. */
+@layer components {
+  .container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  @media (max-width: 768px) {
+    .container {
+      @apply px-4;
+    }
+  }
 }
 
 /* Scrollbar */
@@ -526,11 +542,5 @@ a {
     h3 {
       @apply text-xl;
     }
-  }
-}
-
-@media (max-width: 768px) {
-  .container {
-    @apply px-4;
   }
 }
