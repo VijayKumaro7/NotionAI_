@@ -53,6 +53,16 @@ export class CollaborationClient {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  /**
+   * The timer from a scheduled attemptReconnect(), so disconnect() can
+   * cancel it. Without this handle, a reconnect scheduled by a drop that
+   * happened moments earlier still fires after disconnect() — closedByUs
+   * guards the synchronous case (a close triggering an immediate reconnect
+   * attempt), not an already-pending one — and connect() unconditionally
+   * clears closedByUs at its own start, so the stale timer reopens exactly
+   * the connection disconnect() just closed.
+   */
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private presenceUsers: Map<string, CollaborationUser> = new Map();
   private contentVersion = 0;
   /**
@@ -124,6 +134,10 @@ export class CollaborationClient {
   public disconnect(): void {
     this.closedByUs = true;
     this.stopHeartbeat();
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
     if (this.ws) {
       this.ws.close();
       this.ws = null;
@@ -347,7 +361,8 @@ export class CollaborationClient {
       const delay =
         this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
 
-      setTimeout(() => {
+      this.reconnectTimeout = setTimeout(() => {
+        this.reconnectTimeout = null;
         this.connect(wsUrl).catch(error => {
           this.config.onError?.(error);
         });

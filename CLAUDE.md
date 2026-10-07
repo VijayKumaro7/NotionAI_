@@ -119,6 +119,11 @@ pnpm db:push
   and the only way to notice is to measure the computed style. `.btn-notion*`,
   `.input-notion` and `.editor-*` all live in `@layer components`; keep them
   there and a call-site utility wins, which is what anyone would expect.
+  `.container` sat outside every layer for a long time after that audit —
+  missed because nothing writes `className="container"` anywhere, so it had
+  no visible effect to catch the eye. It is in `@layer components` now, same
+  as `.btn-notion*`; a new custom class belongs there too, on sight, not
+  only once something using it demonstrates the bug.
 - **A control is one thing, not two fighting.** These classes are complete
   components rendered on plain elements, not a look layered onto a shadcn
   primitive that already styles itself — that fight is what made the
@@ -469,6 +474,17 @@ pnpm db:push
 - WebSocket logic is in `client/src/lib/collaborationClient.ts`.
 - Operational transformation helpers are in `client/src/lib/collaboration.ts`.
 - The custom hook `useCollaboration` wraps the client for React components.
+- **`disconnect()` cancels a reconnect that is already scheduled, not only
+  one the close handler is about to schedule.** `closedByUs` guards the
+  synchronous path — a close event checking the flag before deciding to
+  reconnect — but a drop moments earlier can have already scheduled one via
+  `setTimeout`, and `connect()` unconditionally clears `closedByUs` at its
+  own start (needed for a deliberate reconnect after a deliberate
+  disconnect). Without cancelling that pending timer, it fires anyway and
+  reopens the exact connection `disconnect()` just closed, into a room the
+  component has since unmounted out of. The timer's handle is kept in
+  `reconnectTimeout`, the same shape `stopHeartbeat` already uses for its
+  `setInterval`.
 
 ### Encryption
 
