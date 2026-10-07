@@ -479,4 +479,23 @@ describe("reconnection", () => {
 
     expect(FakeWebSocket.instances.length - before).toBe(5);
   });
+
+  it("cancels a reconnect already scheduled when disconnect() is called", async () => {
+    // closedByUs only tells the *synchronous* close handler not to schedule
+    // a reconnect; it does nothing about one a drop already scheduled a
+    // moment earlier. Without cancelling that timer, connect() clears
+    // closedByUs when it eventually fires and reopens exactly the
+    // connection disconnect() just closed.
+    vi.useFakeTimers();
+    const { socket, client } = await connected();
+    const before = FakeWebSocket.instances.length;
+
+    socket.close(); // schedules a reconnect 1s out
+    client.disconnect(); // leaves before that timer fires
+
+    vi.advanceTimersByTime(60_000);
+
+    expect(FakeWebSocket.instances).toHaveLength(before);
+    expect(client.isConnectedToServer()).toBe(false);
+  });
 });

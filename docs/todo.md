@@ -224,6 +224,28 @@
       on — create/revoke paired across delete, download and unmount, with no
       orphaned or double-revoked URLs across repeated cycles
 
+## A Reconnect That Outlived The Disconnect That Should Have Stopped It
+
+- [x] `collaborationClient.ts` already carries one fix for "leaving a shared
+      note reconnects a second later anyway" — `closedByUs`, checked by the
+      close handler before it schedules a reconnect. It only guards the
+      synchronous case. A drop that happens moments before `disconnect()` is
+      called has already scheduled a reconnect by then, and nothing told
+      that pending timer to stop
+- [x] `connect()` unconditionally clears `closedByUs` at its own first line
+      — written for the legitimate case of a deliberate reconnect after a
+      deliberate disconnect — so the stale timer firing later undoes the
+      disconnect it was supposed to have no part of, and reopens a socket to
+      a room the component has already unmounted out of, with a `doc` that
+      may already be destroyed on the other end of its callbacks
+- [x] Fixed by keeping the timer's own handle and cancelling it in
+      `disconnect()`, the same shape `stopHeartbeat` already uses for its
+      `setInterval`
+- [x] Proved it: scheduled a reconnect with a close, then called
+      `disconnect()` before the backoff elapsed, then advanced the clock a
+      full minute — failing against the pre-fix code (a second socket opens
+      anyway) and passing against the fix (none does)
+
 ## Completed Features
 
 ### Core Infrastructure
