@@ -226,6 +226,31 @@ pnpm db:push
   above, just on the platform axis instead of the browser one: something
   elsewhere in the same file already did this correctly, and one spot
   didn't go through it.
+- **A shortcut `lib/shortcuts.ts` declares and `ShortcutsModal` advertises
+  has to actually run somewhere, not just format correctly.** The entire
+  Formatting category — Bold, Italic, Underline, Code, Heading 1/2/3,
+  Bullet List, Numbered List, Quote — was listed in the help dialog with a
+  correct, platform-aware key combo next to each one, and none of them did
+  anything: `useKeyboardShortcuts`'s global handler only lets
+  `help`/`command-palette`/`open-search` fire while focus sits in an input
+  or textarea, and `NotesApp.tsx` never wired handlers for the rest of the
+  category regardless. The note body is a `<textarea>`
+  (`RichTextEditor.tsx`), the one place typing focus actually lives, so it
+  is the one place that can make the advertised keys real. Its toolbar
+  already had the right action for each — `insertMarkdown`, on each
+  button's `onClick` — so the fix is a `formattingActions` map, keyed by
+  the same shortcut ids `lib/shortcuts.ts` defines, that both the toolbar
+  buttons and a new `onKeyDown` on the textarea read from, rather than two
+  copies of the same `insertMarkdown` call drifting apart. Heading 3 has no
+  toolbar button (the toolbar only ever offered H1/H2) but is wired into
+  the map anyway, keyboard-only, since the help dialog lists it like any
+  other Formatting shortcut. The toolbar's own Bold/Italic/Underline
+  tooltips separately carried a hardcoded `"Ctrl+B"`-style literal that was
+  never actually rendered (`title` read `btn.label`, not that field) — not
+  a live bug, but the same landmine the footer tip above already was; it
+  now goes through `formatKeys` like everything else, and is rendered for
+  every Formatting button rather than the three that happened to have the
+  dead field.
 
 ### Backend
 

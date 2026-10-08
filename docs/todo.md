@@ -246,6 +246,48 @@
       full minute — failing against the pre-fix code (a second socket opens
       anyway) and passing against the fix (none does)
 
+## A Help Dialog That Listed Shortcuts Nothing Answered To
+
+- [x] `ShortcutsModal` lists the entire Formatting category — Bold, Italic,
+      Underline, Code, Heading 1/2/3, Bullet List, Numbered List, Quote —
+      each with a correctly platform-formatted key combo next to it, as
+      though pressing it did something. None of them did:
+      `useKeyboardShortcuts`'s global handler only lets
+      `help`/`command-palette`/`open-search` through while focus sits in an
+      `<input>` or `<textarea>`, and `NotesApp.tsx` never registered the rest
+      of the Formatting category as handlers regardless — so even focus
+      outside the editor wouldn't have helped. The note body is a
+      `<textarea>` (`RichTextEditor.tsx`), which is the one place a person
+      is actually focused while they'd reach for Cmd+B
+- [x] `RichTextEditor.tsx`'s toolbar already had the right action for each
+      of these (`insertMarkdown`, wired to each button's `onClick`) — the gap
+      was never in what to do, only in reaching it from the keyboard. Added
+      a `formattingActions` map, keyed by the same shortcut ids
+      `lib/shortcuts.ts` already defines, and pointed both the toolbar
+      buttons and a new `onKeyDown` on the textarea at the same functions,
+      so the two paths can't drift apart the way two independent copies of
+      the same `insertMarkdown` call would
+- [x] Heading 3 has no toolbar button — the toolbar only ever offered H1/H2
+      — but `ShortcutsModal` still lists it like every other Formatting
+      shortcut. Wired it into `formattingActions` anyway, keyboard-only,
+      rather than leaving the one shortcut in the category that happens to
+      have no button still doing nothing
+- [x] The toolbar's own tooltip for Bold/Italic/Underline carried a
+      hardcoded `"Ctrl+B"`-style literal that was never actually rendered
+      (`title` read `btn.label`, not the dead `shortcut` field) — so it
+      wasn't a live bug, but it was the same landmine `ShortcutsModal`'s
+      footer tip already was: the day someone wires it up, it is wrong on a
+      Mac. Replaced it with a lookup through `formatKeys`, now actually
+      rendered, and extended it to every Formatting button rather than only
+      the three that happened to have it
+- [x] First test for this component: fires a real `keydown` with
+      `ctrlKey`/`metaKey` set against a stubbed `navigator.platform`, and
+      asserts `onChange` receives the same wrapped text clicking the
+      toolbar button would have produced — covering both platforms, the
+      keyboard-only Heading 3 case, and that a bare key with no modifier
+      does nothing. Fails against the pre-fix code, which had no
+      `onKeyDown` on the textarea at all
+
 ## Completed Features
 
 ### Core Infrastructure

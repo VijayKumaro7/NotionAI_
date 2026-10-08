@@ -16,6 +16,12 @@ import {
   Clock,
   Share2,
 } from "lucide-react";
+import {
+  SHORTCUTS,
+  getShortcutById,
+  matchesShortcut,
+  formatKeys,
+} from "@/lib/shortcuts";
 
 interface RichTextEditorProps {
   content: string;
@@ -107,57 +113,103 @@ export function RichTextEditor({
     }
   }, [history, historyIndex, onChange]);
 
+  // One action per Formatting-category shortcut in lib/shortcuts.ts, so the
+  // keyboard handler below and the toolbar buttons call the exact same
+  // function rather than two copies of the same insertMarkdown call drifting
+  // apart. heading3 has no toolbar button (H1/H2 are all the toolbar offers)
+  // but is wired here anyway: ShortcutsModal advertises it like any other
+  // Formatting shortcut, and a keyboard-only action is enough to make that
+  // advertisement true.
+  const formattingActions: Record<string, () => void> = {
+    bold: () => insertMarkdown("**", "**"),
+    italic: () => insertMarkdown("*", "*"),
+    underline: () => insertMarkdown("__", "__"),
+    code: () => insertMarkdown("`", "`"),
+    heading1: () => insertMarkdown("# ", ""),
+    heading2: () => insertMarkdown("## ", ""),
+    heading3: () => insertMarkdown("### ", ""),
+    "bullet-list": () => insertMarkdown("- ", ""),
+    "numbered-list": () => insertMarkdown("1. ", ""),
+    quote: () => insertMarkdown("> ", ""),
+  };
+
+  /**
+   * ShortcutsModal lists every Formatting shortcut (Cmd+B, Cmd+Alt+1, ...) as
+   * though pressing it does something. None of them did: the global handler
+   * in useKeyboardShortcuts only lets `help`/`command-palette`/`open-search`
+   * through while focus is in a textarea, and NotesApp never registered the
+   * rest anyway. This is the one place that focus actually reaches, so it is
+   * the one place that can make the advertised keys real.
+   */
+  const handleEditorKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    for (const shortcut of SHORTCUTS) {
+      if (shortcut.category !== "Formatting") continue;
+      const action = formattingActions[shortcut.id];
+      if (action && matchesShortcut(e.nativeEvent, shortcut)) {
+        e.preventDefault();
+        action();
+        return;
+      }
+    }
+  };
+
   const toolbarButtons = [
     {
       icon: Bold,
       label: "Bold",
-      onClick: () => insertMarkdown("**", "**"),
-      shortcut: "Ctrl+B",
+      onClick: formattingActions.bold,
+      shortcutId: "bold",
     },
     {
       icon: Italic,
       label: "Italic",
-      onClick: () => insertMarkdown("*", "*"),
-      shortcut: "Ctrl+I",
+      onClick: formattingActions.italic,
+      shortcutId: "italic",
     },
     {
       icon: Underline,
       label: "Underline",
-      onClick: () => insertMarkdown("__", "__"),
-      shortcut: "Ctrl+U",
+      onClick: formattingActions.underline,
+      shortcutId: "underline",
     },
     { divider: true },
     {
       icon: Heading1,
       label: "Heading 1",
-      onClick: () => insertMarkdown("# ", ""),
+      onClick: formattingActions.heading1,
+      shortcutId: "heading1",
     },
     {
       icon: Heading2,
       label: "Heading 2",
-      onClick: () => insertMarkdown("## ", ""),
+      onClick: formattingActions.heading2,
+      shortcutId: "heading2",
     },
     { divider: true },
     {
       icon: List,
       label: "Bullet List",
-      onClick: () => insertMarkdown("- ", ""),
+      onClick: formattingActions["bullet-list"],
+      shortcutId: "bullet-list",
     },
     {
       icon: ListOrdered,
       label: "Numbered List",
-      onClick: () => insertMarkdown("1. ", ""),
+      onClick: formattingActions["numbered-list"],
+      shortcutId: "numbered-list",
     },
     { divider: true },
     {
       icon: Code,
       label: "Code",
-      onClick: () => insertMarkdown("`", "`"),
+      onClick: formattingActions.code,
+      shortcutId: "code",
     },
     {
       icon: Quote,
       label: "Quote",
-      onClick: () => insertMarkdown("> ", ""),
+      onClick: formattingActions.quote,
+      shortcutId: "quote",
     },
     { divider: true },
     {
@@ -200,12 +252,19 @@ export function RichTextEditor({
           }
 
           const Icon = btn.icon;
+          const shortcut = btn.shortcutId
+            ? getShortcutById(btn.shortcutId)
+            : undefined;
           return (
             <button
               key={btn.label}
               onClick={btn.onClick}
               disabled={btn.disabled}
-              title={btn.label}
+              title={
+                shortcut
+                  ? `${btn.label} (${formatKeys(shortcut.keys)})`
+                  : btn.label
+              }
               className="editor-toolbar-button"
             >
               <Icon className="w-4 h-4" />
@@ -219,6 +278,7 @@ export function RichTextEditor({
         ref={textareaRef}
         value={content}
         onChange={handleChange}
+        onKeyDown={handleEditorKeyDown}
         placeholder={placeholder}
         className="editor-textarea flex-1"
         spellCheck="true"
