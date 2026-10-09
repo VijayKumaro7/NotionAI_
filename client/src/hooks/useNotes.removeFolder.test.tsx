@@ -104,7 +104,8 @@ function noteRow(id: string, folderId: string): Note {
 /** Seeds without a key, and preserving the timestamp — `saveNote` stamps
  * `Date.now()` by default, which every "did this note move" check here would
  * otherwise be unable to tell apart from a real move. */
-const seedNote = (n: Note) => saveNote(n, undefined, { preserveTimestamp: true });
+const seedNote = (n: Note) =>
+  saveNote(n, undefined, { preserveTimestamp: true });
 
 /**
  * `isLoading` turns false once folders, the key, deleted notes and tags are
@@ -119,9 +120,7 @@ const seedNote = (n: Note) => saveNote(n, undefined, { preserveTimestamp: true }
  */
 async function mount() {
   const view = renderHook(() => useNotes());
-  await waitFor(() =>
-    expect(view.result.current.encryptionKey).not.toBeNull()
-  );
+  await waitFor(() => expect(view.result.current.encryptionKey).not.toBeNull());
   await waitFor(() => expect(view.result.current.isLoading).toBe(false));
   await act(() => view.result.current.loadAllNotes());
   return view;

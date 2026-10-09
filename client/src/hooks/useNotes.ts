@@ -977,8 +977,14 @@ export function useNotes() {
       // above just wrote the in-progress edit to IndexedDB, not to `notes`
       // state, so the ref is exactly the stale copy this note would
       // otherwise be reparented under.
-      const liveNotes = await getAllNotes(encryptionKeyRef.current ?? undefined);
-      const reparented = reparentNotes(liveNotes, folderId, destinationFolderId);
+      const liveNotes = await getAllNotes(
+        encryptionKeyRef.current ?? undefined
+      );
+      const reparented = reparentNotes(
+        liveNotes,
+        folderId,
+        destinationFolderId
+      );
 
       if (createdFolder) {
         await saveFolder(createdFolder);
@@ -1006,7 +1012,9 @@ export function useNotes() {
       });
 
       if (reparented.length > 0) {
-        setNotes(prev => prev.map(n => reparented.find(r => r.id === n.id) ?? n));
+        setNotes(prev =>
+          prev.map(n => reparented.find(r => r.id === n.id) ?? n)
+        );
 
         // If the note on screen was one of them, it is still carrying the
         // deleted folder's id in this state — a separate copy from the one
