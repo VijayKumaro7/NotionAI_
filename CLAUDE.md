@@ -266,7 +266,16 @@ pnpm db:push
   wired as real global shortcuts too, not just reachable through the
   palette, since a key combo shown next to a palette row that does nothing
   when pressed directly outside it would have been the same lie at a
-  smaller scale.
+  smaller scale. `delete-note` (Cmd+Delete) was the one Editing-category
+  shortcut left in the same state afterward; wired to the same `removeNote`
+  the sidebar's own delete button already calls, so it is the same
+  soft-delete with the same Recently Deleted net under it, not a second
+  deletion path. `undo`/`redo` (Cmd+Z / Cmd+Shift+Z) stay unwired on
+  purpose: their state lives private inside `RichTextEditor.tsx` with no
+  ref or prop reaching it, so wiring them needs forwarding a ref across
+  that boundary — a real refactor, not a one-line map entry like the rest
+  of this bullet — and is left for its own change instead of being done
+  quietly inside this one.
 
 ### Backend
 

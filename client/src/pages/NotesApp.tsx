@@ -558,6 +558,10 @@ export default function NotesApp() {
     if (searchInput) searchInput.focus();
   }, []);
 
+  const handleDeleteCurrentNote = useCallback(() => {
+    if (currentNote) removeNote(currentNote.id);
+  }, [currentNote, removeNote]);
+
   const { toggleTheme } = useTheme();
 
   // Keyboard shortcuts
@@ -573,6 +577,7 @@ export default function NotesApp() {
     "version-history": () => setShowVersionHistory(true),
     "share-note": () => setShowShare(true),
     "toggle-theme": () => toggleTheme?.(),
+    "delete-note": handleDeleteCurrentNote,
   });
 
   const commandPaletteActions: CommandAction[] = [

@@ -323,6 +323,22 @@
       case the fix is actually for — filtered down to "New Folder", ran it
       with Enter, and confirmed a folder actually landed in IndexedDB and the
       palette closed
+- [x] `delete-note` (Cmd+Delete) was the one Editing-category shortcut left
+      in the same advertised-but-unwired state after the palette's own two
+      finds. Wired it to the same `removeNote` the sidebar's delete button
+      already calls — soft-delete, so there is a Recently Deleted net under
+      it the same as every other way of deleting a note
+- [x] `undo`/`redo` (Cmd+Z / Cmd+Shift+Z) stay unwired, and deliberately:
+      their state (`history`, `historyIndex`) lives private inside
+      `RichTextEditor.tsx`, with no ref or prop exposing it, so reaching them
+      from `NotesApp.tsx`'s global handler needs forwarding a ref across that
+      boundary — a real refactor, not the one-line wire the others were. Left
+      for its own change rather than done quietly inside this one
+- [x] Verified live in real Chromium against the production build: opened a
+      note, clicked outside any input, pressed Ctrl+Delete, and confirmed the
+      note count in IndexedDB dropped by one and the editor closed — the
+      exact shape `removeNote` already produces from the sidebar's own
+      delete button
 
 ## Completed Features
 
