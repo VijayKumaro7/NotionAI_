@@ -251,6 +251,22 @@ pnpm db:push
   now goes through `formatKeys` like everything else, and is rendered for
   every Formatting button rather than the three that happened to have the
   dead field.
+- **The Command Palette (`CommandPalette.tsx`, Cmd+/) is a new feature, not a
+  wiring fix** — unlike Bold/Italic above, nothing on the other end of that
+  shortcut existed anywhere in the codebase; `lib/shortcuts.ts` had declared
+  it and `ShortcutsModal` had always listed it, but there was no feature to
+  reach. Its seven actions (New Note, New Folder, Search Notes, Version
+  History, Share Note, Toggle Theme, Keyboard Shortcuts) each call the exact
+  function `NotesApp.tsx` already had, rather than a second copy of the same
+  logic. An action that needs a note open (Share, Version History) is left
+  out of the list entirely rather than shown disabled — a dialog with
+  nothing in it behind a greyed-out row is not more honest than not showing
+  the row. Building this surfaced two more shortcuts in the same
+  advertised-but-unwired state (`new-folder`, `toggle-theme`); both are now
+  wired as real global shortcuts too, not just reachable through the
+  palette, since a key combo shown next to a palette row that does nothing
+  when pressed directly outside it would have been the same lie at a
+  smaller scale.
 
 ### Backend
 
@@ -649,6 +665,7 @@ rather than half-working. `render.yaml` enumerates the full set.
 | Live cursors                       | `components/LiveCursors.tsx`                                                                                            |
 | Presence indicators                | `components/PresenceIndicators.tsx`                                                                                     |
 | Keyboard shortcuts                 | `lib/shortcuts.ts`, `components/ShortcutsModal.tsx`, `hooks/useKeyboardShortcuts.ts`                                    |
+| Command palette                    | `components/CommandPalette.tsx`, `pages/NotesApp.tsx` (`commandPaletteActions`)                                         |
 | Template selection                 | `components/TemplateSelector.tsx`, `shared/templates.ts`                                                                |
 | AI drafting of template blanks     | `server/templateDrafting.ts`, `server/routers.ts` (`templates.draftBlanks`)                                             |
 | Recently deleted                   | `components/RecentlyDeleted.tsx`                                                                                        |

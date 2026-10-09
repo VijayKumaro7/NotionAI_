@@ -11,7 +11,12 @@ import ShareModal from "@/components/ShareModal";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import ShortcutsModal from "@/components/ShortcutsModal";
 import { TemplateSelector } from "@/components/TemplateSelector";
+import {
+  CommandPalette,
+  type CommandAction,
+} from "@/components/CommandPalette";
 import type { NoteTemplate } from "@shared/templates";
+import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -44,6 +49,10 @@ import {
   LayoutTemplate,
   Menu,
   CloudOff,
+  FolderPlus,
+  Share2,
+  Moon,
+  Keyboard,
 } from "lucide-react";
 import { BrandedLoader } from "@/components/BrandedLoader";
 import { Spinner } from "@/components/ui/spinner";
@@ -269,6 +278,7 @@ export default function NotesApp() {
   const [showShare, setShowShare] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Whether the sidebar is a static column rather than a drawer. CSS handles
@@ -531,26 +541,91 @@ export default function NotesApp() {
     utils,
   ]);
 
+  const handleNewNote = useCallback(() => {
+    if (folders.length > 0) {
+      createNote(folders[0].id);
+    }
+  }, [folders, createNote]);
+
+  const handleNewFolder = useCallback(() => {
+    createFolder("New Folder");
+  }, [createFolder]);
+
+  const focusSearchInput = useCallback(() => {
+    const searchInput = document.querySelector(
+      'input[placeholder="Search notes..."]'
+    ) as HTMLInputElement;
+    if (searchInput) searchInput.focus();
+  }, []);
+
+  const { toggleTheme } = useTheme();
+
   // Keyboard shortcuts
   useKeyboardShortcuts({
-    "new-note": () => {
-      if (folders.length > 0) {
-        createNote(folders[0].id);
-      }
-    },
+    "new-note": handleNewNote,
+    "new-folder": handleNewFolder,
     help: () => setShowShortcuts(true),
-    "open-search": () => {
-      const searchInput = document.querySelector(
-        'input[placeholder="Search notes..."]'
-      ) as HTMLInputElement;
-      if (searchInput) searchInput.focus();
-    },
+    "open-search": focusSearchInput,
+    "command-palette": () => setShowCommandPalette(true),
     save: () => {
       toast.success("Note saved");
     },
     "version-history": () => setShowVersionHistory(true),
     "share-note": () => setShowShare(true),
+    "toggle-theme": () => toggleTheme?.(),
   });
+
+  const commandPaletteActions: CommandAction[] = [
+    {
+      id: "new-note",
+      label: "New Note",
+      icon: FileText,
+      enabled: folders.length > 0,
+      run: handleNewNote,
+    },
+    {
+      id: "new-folder",
+      label: "New Folder",
+      icon: FolderPlus,
+      enabled: true,
+      run: handleNewFolder,
+    },
+    {
+      id: "open-search",
+      label: "Search Notes",
+      icon: Search,
+      enabled: true,
+      run: focusSearchInput,
+    },
+    {
+      id: "version-history",
+      label: "Version History",
+      icon: Clock,
+      enabled: !!currentNote,
+      run: () => setShowVersionHistory(true),
+    },
+    {
+      id: "share-note",
+      label: "Share Note",
+      icon: Share2,
+      enabled: !!currentNote,
+      run: () => setShowShare(true),
+    },
+    {
+      id: "toggle-theme",
+      label: "Toggle Theme",
+      icon: Moon,
+      enabled: !!toggleTheme,
+      run: () => toggleTheme?.(),
+    },
+    {
+      id: "help",
+      label: "Keyboard Shortcuts",
+      icon: Keyboard,
+      enabled: true,
+      run: () => setShowShortcuts(true),
+    },
+  ];
 
   /**
    * Turn a chosen template into a note.
@@ -1384,6 +1459,12 @@ export default function NotesApp() {
       <ShortcutsModal
         isOpen={showShortcuts}
         onClose={() => setShowShortcuts(false)}
+      />
+
+      <CommandPalette
+        isOpen={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        commands={commandPaletteActions}
       />
 
       {/* Templates. Only mounted while open — its AI drafting panel calls a

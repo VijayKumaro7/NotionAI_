@@ -288,6 +288,42 @@
       does nothing. Fails against the pre-fix code, which had no
       `onKeyDown` on the textarea at all
 
+## A Help Dialog's Promise With Nothing Behind It At All
+
+- [x] Same sweep, one category over: `lib/shortcuts.ts` has declared
+      `command-palette` (Cmd+/) since the shortcut list existed,
+      `ShortcutsModal` has always listed it with a correct platform-formatted
+      key combo, and `useKeyboardShortcuts` even special-cases it to fire
+      while typing in a note — the same treatment given to Help and Search.
+      Unlike Bold or Italic, nothing was missing a wire: there was no feature
+      on the other end of it anywhere in the codebase to wire to
+- [x] Built `CommandPalette.tsx` — a small quick-actions dialog, filterable by
+      typing, navigable with arrow keys, opened by the shortcut that already
+      claimed to open it. Seven actions: New Note, New Folder, Search Notes,
+      Version History, Share Note, Toggle Theme, Keyboard Shortcuts — each
+      reusing the exact function `NotesApp.tsx` already had for its toolbar
+      or its own (now real) keyboard shortcut, not a second copy of the same
+      logic
+- [x] `new-folder` and `toggle-theme` were two more Navigation/General
+      shortcuts `ShortcutsModal` listed with nothing behind them, found while
+      building the palette's own action list. Wired both as real global
+      shortcuts too — not just reachable through the palette — since showing
+      a key combo next to a palette row that does not work when pressed
+      directly outside it would have been the same lie at a smaller scale
+- [x] An action the palette cannot usefully run is left out of the list
+      entirely, not shown disabled: Share Note and Version History need a
+      note open, and hiding them is more honest than a greyed-out row inviting
+      a click that would open a dialog with nothing in it
+- [x] First test for this component: filtering, arrow-key navigation with
+      wraparound, Enter running the selected command, click running the
+      clicked one, the dialog resetting on reopen, and the shortcut hint
+      reading `Ctrl+N`/`⌘N` by platform like everywhere else in the app
+- [x] Verified live in real Chromium against the production build: opened
+      the palette with Ctrl+/ from inside the note editor itself — the one
+      case the fix is actually for — filtered down to "New Folder", ran it
+      with Enter, and confirmed a folder actually landed in IndexedDB and the
+      palette closed
+
 ## Completed Features
 
 ### Core Infrastructure
