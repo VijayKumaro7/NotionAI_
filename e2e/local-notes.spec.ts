@@ -101,12 +101,12 @@ test("deleting a folder does not strand the note filed directly on it", async ({
 
   const title = "Do not lose me";
   await page.locator('input[placeholder="Note title..."]').fill(title);
-  await editorTextarea(page).fill("filed directly on the folder, not a child of it");
+  await editorTextarea(page).fill(
+    "filed directly on the folder, not a child of it"
+  );
 
   await sidebar.getByText("Delete Me", { exact: true }).hover();
-  await page
-    .getByRole("button", { name: "Delete folder Delete Me" })
-    .click();
+  await page.getByRole("button", { name: "Delete folder Delete Me" }).click();
 
   // This is the failure this test exists to catch: the folder is gone and
   // the note it held keeps a folderId that names nothing, present on disk
